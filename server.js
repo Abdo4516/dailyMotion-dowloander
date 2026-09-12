@@ -1,16 +1,21 @@
 const express = require('express');
 const { spawn } = require('child_process');
 const cors = require('cors');
+const path = require('path');
+
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
+// كايخلي السيرفر يعرض صفحة index.html فـ الرابط الرئيسي
+app.use(express.static(path.join(__dirname)));
+
 app.post('/download', (req, res) => {
   const { url: videoUrl, quality } = req.body;
   if (!videoUrl) return res.status(400).send('URL missing');
 
-  // تحديد الجودة المطلوبة
+  // تحديد الجودة المطلوبة (Default 480p)
   const targetQuality = quality || '480';
   const formatOption = `b[height<=${targetQuality}]/w`;
 
@@ -37,4 +42,5 @@ app.post('/download', (req, res) => {
   });
 });
 
-app.listen(3000, () => console.log('Server running on port 3000'));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
