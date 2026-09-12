@@ -1,8 +1,7 @@
 const express = require('express');
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
 
 const app = express();
 
@@ -14,25 +13,36 @@ app.post('/download', (req, res) => {
   const { url: videoUrl } = req.body;
   if (!videoUrl) return res.status(400).json({ error: 'URL missing' });
 
-  // مسار الملف المؤقت
-  const outputPath = path.join(__dirname, `video_${Date.now()}.mp4`);
+  // ضبط إعدادات Response Headers كـ File stream
+  res.setHeader('Content-Disposition', 'attachment; filename="video.mp4"');
+  res.setHeader('Content-Type', 'video/mp4');
 
-  // تحميل الفيديو لملف مؤقت
-  const cmd = `yt-dlp -f "b" --no-playlist --no-check-certificates -o "${outputPath}" "${videoUrl}"`;
+  // استخدام spawn مع خيارات خفيفة لتفادي Timeout وتجنب Re-encoding
+  const ytDlp = spawn('yt-dlp', [
+    '-f', 'b',
+    '--no-playlist',
+    '--no-check-certificates',
+    '--impersonate', 'firefox',
+    '-o', '-',
+    videoUrl
+  ]);
 
-  exec(cmd, (error, stdout, stderr) => {
-    if (error || !fs.existsSync(outputPath)) {
-      console.error(`yt-dlp error: ${stderr || error.message}`);
-      return res.status(500).json({ error: 'Erreur lors du téléchargement' });
+  // تمرير Stream مباشرة للمستخدم
+  ytDlp.stdout.pipe(res);
+
+  ytDlp.stderr.on('data', (data) => {
+    console.error(`yt-dlp log: ${data}`);
+  });
+
+  ytDlp.on('close', (code) => {
+    if (code !== 0) {
+      console.log(`Process exited with code ${code}`);
     }
+  });
 
-    // إرسال الملف المستخرج للمستخدم
-    res.download(outputPath, 'video.mp4', (err) => {
-      // مسح الملف المؤقت بعد إتمام التحميل
-      if (fs.existsSync(outputPath)) {
-        fs.unlinkSync(outputPath);
-      }
-    });
+  // إيقاف العملية إذا قفل المستخدم الصفحة
+  req.on('close', () => {
+    ytDlp.kill('SIGKILL');
   });
 });
 

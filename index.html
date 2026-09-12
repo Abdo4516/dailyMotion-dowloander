@@ -7,24 +7,20 @@
 <body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
   <h2>Dailymotion Video Downloader</h2>
   
-  <div style="margin-bottom: 15px;">
-    <input type="text" id="videoUrl" placeholder="Coller le lien ici..." style="width: 320px; padding: 10px;">
-    <button onclick="downloadVideo()" style="padding: 10px 20px;">Download</button>
-  </div>
+  <form id="downloadForm" action="/download" method="POST" style="margin-bottom: 15px;">
+    <input type="text" name="url" id="videoUrl" placeholder="Coller le lien ici..." style="width: 320px; padding: 10px;" required>
+    <button type="submit" style="padding: 10px 20px;">Download</button>
+  </form>
 
   <p id="status"></p>
 
   <script>
-    async function downloadVideo() {
+    document.getElementById('downloadForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
       const url = document.getElementById('videoUrl').value;
       const status = document.getElementById('status');
 
-      if (!url) {
-        status.innerText = "Veuillez entrer un lien valide !";
-        return;
-      }
-
-      status.innerText = "Traitement et téléchargement en cours...";
+      status.innerText = "Démarrage du téléchargement...";
 
       try {
         const response = await fetch('/download', {
@@ -33,15 +29,28 @@
           body: JSON.stringify({ url: url })
         });
 
-        if (!response.ok) {
-          throw new Error("Erreur de téléchargement depuis le serveur.");
-        }
+        if (!response.ok) throw new Error("Erreur du serveur");
 
-        const blob = await response.blob();
-        if (blob.size === 0) {
-          throw new Error("Le fichier reçu est vide.");
-        }
+        const reader = response.body.getReader();
+        const stream = new ReadableStream({
+          start(controller) {
+            function push() {
+              reader.read().then(({ done, value }) => {
+                if (done) {
+                  controller.close();
+                  return;
+                }
+                controller.enqueue(value);
+                push();
+              });
+            }
+            push();
+          }
+        });
 
+        const responseStream = new Response(stream);
+        const blob = await responseStream.blob();
+        
         const downloadUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = downloadUrl;
@@ -49,13 +58,12 @@
         document.body.appendChild(a);
         a.click();
         a.remove();
-        window.URL.revokeObjectURL(downloadUrl);
-
+        
         status.innerText = "Téléchargement terminé !";
       } catch (err) {
-        status.innerText = "Erreur: " + err.message;
+        status.innerText = "Erreur: Téléchargement échoué.";
       }
-    }
+    });
   </script>
 </body>
 </html>
