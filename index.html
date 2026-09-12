@@ -8,15 +8,7 @@
   <h2>Dailymotion Video Downloader</h2>
   
   <div style="margin-bottom: 15px;">
-    <input type="text" id="videoUrl" placeholder="Coller le lien ici..." style="width: 300px; padding: 10px;">
-    
-    <select id="qualitySelect" style="padding: 10px;">
-      <option value="360">360p (أسرع/أخف)</option>
-      <option value="480" selected>480p (متوازن)</option>
-      <option value="720">720p (HD)</option>
-      <option value="1080">1080p (Full HD)</option>
-    </select>
-
+    <input type="text" id="videoUrl" placeholder="Coller le lien ici..." style="width: 320px; padding: 10px;">
     <button onclick="downloadVideo()" style="padding: 10px 20px;">Download</button>
   </div>
 
@@ -25,7 +17,6 @@
   <script>
     async function downloadVideo() {
       const url = document.getElementById('videoUrl').value;
-      const quality = document.getElementById('qualitySelect').value;
       const status = document.getElementById('status');
 
       if (!url) {
@@ -33,40 +24,29 @@
         return;
       }
 
-      status.innerText = `Lancement du téléchargement (${quality}p)...`;
+      status.innerText = "Lancement du téléchargement...";
 
       try {
-        // استدعاء مسار relative باش يخدم فـ Render و Localhost تلقائياً
         const response = await fetch('/download', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: url, quality: quality })
+          body: JSON.stringify({ url: url })
         });
 
-        if (!response.ok) {
-          const errorMsg = await response.text();
-          throw new Error(errorMsg || 'Erreur réseau');
-        }
+        if (!response.ok) throw new Error('Erreur réseau');
 
         const blob = await response.blob();
-        
-        // التأكد من أن الملف ليس فارغاً
-        if (blob.size === 0) {
-          throw new Error("Le fichier téléchargé est vide");
-        }
-
         const downloadUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = downloadUrl;
-        a.download = `video_${quality}p.mp4`;
+        a.download = "video.mp4";
         document.body.appendChild(a);
         a.click();
         a.remove();
-        window.URL.revokeObjectURL(downloadUrl);
         
         status.innerText = "Téléchargement terminé !";
       } catch (err) {
-        status.innerText = "Erreur: " + err.message;
+        status.innerText = "Erreur lors du téléchargement.";
       }
     }
   </script>
