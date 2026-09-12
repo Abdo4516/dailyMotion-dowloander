@@ -11,7 +11,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// كايخلي السيرفر يعرض صفحة index.html فـ الرابط الرئيسي
+// عرض صفحة index.html فـ الرابط الرئيسي
 app.use(express.static(path.join(__dirname)));
 
 const TMP_DIR = path.join(os.tmpdir(), 'yt-downloads');
@@ -21,22 +21,28 @@ app.post('/download', (req, res) => {
   const { url: videoUrl, quality } = req.body;
   if (!videoUrl) return res.status(400).send('URL missing');
 
-  // تحديد الجودة المطلوبة (Default 480p)
   const targetQuality = quality || '480';
-  const formatOption = `b[height<=${targetQuality}]/w`;
+  
+  // صيغة مرنة تضمن عدم الحصول على ملف فارغ
+  const formatOption = `best[height<=${targetQuality}]/bestvideo[height<=${targetQuality}]+bestaudio/best`;
 
-  // معرّف فريد لكل عملية تحميل
   const jobId = crypto.randomBytes(8).toString('hex');
   const outputTemplate = path.join(TMP_DIR, `${jobId}.%(ext)s`);
 
-  const ytDlp = spawn('yt-dlp', [
+  // حاسوب الويندوز المحلي يستعمل ffmpeg.exe، بينما Linux يستعمل النظام التلقائي
+  const args = [
     '-f', formatOption,
-    '--concurrent-fragments', '5',
-    '--merge-output-format', 'mp4', // يضمن ناتج mp4 حتى لو احتاج الأمر دمج
-    '--ffmpeg-location', path.join(__dirname, 'ffmpeg.exe'),
+    '--no-playlist',
     '-o', outputTemplate,
     videoUrl
-  ]);
+  ];
+
+  if (process.platform === 'win32' && fs.existsSync(path.join(__dirname, 'ffmpeg.exe'))) {
+    args.unshift(path.join(__dirname, 'ffmpeg.exe'));
+    args.unshift('--ffmpeg-location');
+  }
+
+  const ytDlp = spawn('yt-dlp', args);
 
   let stderrLog = '';
   ytDlp.stderr.on('data', (data) => {
@@ -52,7 +58,6 @@ app.post('/download', (req, res) => {
   ytDlp.on('close', (code) => {
     console.log(`Process exited with code ${code}`);
 
-    // البحث على الملف الناتج (الامتداد يقدر يختلف حسب الفورمات)
     let outputFile = null;
     try {
       const files = fs.readdirSync(TMP_DIR).filter(f => f.startsWith(jobId));
@@ -77,15 +82,12 @@ app.post('/download', (req, res) => {
       return;
     }
 
-    // الملف كامل وسالم -> نبعتوه دابا
     res.download(outputFile, `video_${targetQuality}p.mp4`, (err) => {
       if (err) console.error('Error sending file to client:', err);
-      // تنظيف الملف المؤقت من بعد الإرسال
       fs.unlink(outputFile, () => {});
     });
   });
 
-  // إلغاء العملية إذا المستخدم سد الاتصال قبل ما تكمل
   req.on('close', () => {
     if (!res.headersSent) {
       ytDlp.kill('SIGKILL');
