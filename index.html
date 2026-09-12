@@ -2,58 +2,100 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dailymotion Video Downloader</title>
 </head>
-<body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
+<body style="font-family:sans-serif;text-align:center;padding:50px 15px;">
   <h2>Dailymotion Video Downloader</h2>
-  
-  <div style="margin-bottom: 15px;">
-    <input type="text" id="videoUrl" placeholder="Coller le lien ici..." style="width: 320px; padding: 10px;">
-    <button onclick="downloadVideo()" style="padding: 10px 20px;">Download</button>
+
+  <div style="margin-bottom:15px;">
+    <input
+      type="url"
+      id="videoUrl"
+      placeholder="Coller le lien ici..."
+      style="width:min(90%,420px);padding:10px;"
+    >
+    <button id="downloadBtn" onclick="downloadVideo()" style="padding:10px 20px;">
+      Download
+    </button>
   </div>
 
   <p id="status"></p>
 
   <script>
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
     async function downloadVideo() {
-      const url = document.getElementById('videoUrl').value;
+      const input = document.getElementById('videoUrl');
+      const button = document.getElementById('downloadBtn');
       const status = document.getElementById('status');
+      const url = input.value.trim();
 
       if (!url) {
         status.innerText = "Veuillez entrer un lien valide !";
         return;
       }
 
-      status.innerText = "Traitement et téléchargement en cours...";
+      button.disabled = true;
+      status.innerText = "Préparation du téléchargement...";
 
       try {
         const response = await fetch('/download', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: url })
+          body: JSON.stringify({ url })
         });
 
+        const data = await response.json().catch(() => ({}));
+
         if (!response.ok) {
-          throw new Error("Erreur de téléchargement depuis le serveur.");
+          throw new Error(data.error || "Impossible de démarrer le téléchargement.");
         }
 
-        const blob = await response.blob();
-        if (blob.size === 0) {
-          throw new Error("Le fichier reçu est vide.");
+        // Polling keeps the Render Free web service active while yt-dlp works.
+        while (true) {
+          await sleep(2000);
+
+          const statusResponse = await fetch(data.statusUrl, { cache: 'no-store' });
+          const job = await statusResponse.json().catch(() => ({}));
+
+          if (!statusResponse.ok) {
+            throw new Error(job.error || "Le job a expiré.");
+          }
+
+          if (job.status === 'downloading' || job.status === 'starting') {
+            const progress = Number.isFinite(job.progress)
+              ? Math.round(job.progress)
+              : 0;
+
+            status.innerText = `Téléchargement en cours... ${progress}%`;
+            continue;
+          }
+
+          if (job.status === 'error') {
+            throw new Error(job.error || "Erreur pendant le téléchargement.");
+          }
+
+          if (job.status === 'ready') {
+            status.innerText = "Téléchargement prêt, démarrage...";
+
+            // IMPORTANT: do not fetch the whole MP4 into a Blob.
+            // Let the browser download/stream the file directly.
+            const a = document.createElement('a');
+            a.href = data.fileUrl;
+            a.download = 'video.mp4';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+
+            status.innerText = "Téléchargement terminé !";
+            break;
+          }
         }
-
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = "video.mp4";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(downloadUrl);
-
-        status.innerText = "Téléchargement terminé !";
       } catch (err) {
-        status.innerText = "Erreur: " + err.message;
+        status.innerText = "Erreur : " + err.message;
+      } finally {
+        button.disabled = false;
       }
     }
   </script>
