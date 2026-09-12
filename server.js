@@ -11,7 +11,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// عرض صفحة index.html فـ الرابط الرئيسي
 app.use(express.static(path.join(__dirname)));
 
 const TMP_DIR = path.join(os.tmpdir(), 'yt-downloads');
@@ -23,16 +22,16 @@ app.post('/download', (req, res) => {
 
   const targetQuality = quality || '480';
   
-  // صيغة مرنة تضمن عدم الحصول على ملف فارغ
-  const formatOption = `best[height<=${targetQuality}]/bestvideo[height<=${targetQuality}]+bestaudio/best`;
+  // صيغة مبسطة ومباشرة متوافقة مع Dailymotion و Render
+  const formatOption = `best[height<=${targetQuality}]/best`;
 
   const jobId = crypto.randomBytes(8).toString('hex');
   const outputTemplate = path.join(TMP_DIR, `${jobId}.%(ext)s`);
 
-  // حاسوب الويندوز المحلي يستعمل ffmpeg.exe، بينما Linux يستعمل النظام التلقائي
   const args = [
     '-f', formatOption,
     '--no-playlist',
+    '--no-check-certificates',
     '-o', outputTemplate,
     videoUrl
   ];
@@ -69,7 +68,7 @@ app.post('/download', (req, res) => {
     if (code !== 0 || !outputFile || !fs.existsSync(outputFile)) {
       console.error(`Download failed. stderr tail:\n${stderrLog.slice(-800)}`);
       if (!res.headersSent) {
-        return res.status(500).send('فشل التحميل: ' + stderrLog.slice(-300));
+        return res.status(500).send('فشل التحميل: ' + stderrLog.slice(-200));
       }
       return;
     }
