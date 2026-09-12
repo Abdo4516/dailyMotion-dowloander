@@ -24,7 +24,7 @@
         return;
       }
 
-      status.innerText = "Téléchargement en cours...";
+      status.innerText = "Traitement et téléchargement en cours...";
 
       try {
         const response = await fetch('/download', {
@@ -38,7 +38,6 @@
         }
 
         const blob = await response.blob();
-        
         if (blob.size === 0) {
           throw new Error("Le fichier reçu est vide.");
         }
