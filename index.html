@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Dailymotion Downloader</title>
+</head>
+<body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
+  <h2>Dailymotion Video Downloader</h2>
+  <input type="text" id="videoUrl" placeholder="Coller le lien ici..." style="width: 300px; padding: 10px;">
+  <button onclick="downloadVideo()" style="padding: 10px 20px;">Download</button>
+  <p id="status"></p>
+
+  <script>
+    async function downloadVideo() {
+      const url = document.getElementById('videoUrl').value;
+      const status = document.getElementById('status');
+      status.innerText = "Téléchargement en cours...";
+
+      try {
+        const response = await fetch('http://localhost:3000/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: url })
+        });
+        const result = await response.text();
+        status.innerText = result;
+      } catch (err) {
+        status.innerText = "Erreur lors du téléchargement.";
+      }
+    }
+  </script>
+</body>
+</html>
