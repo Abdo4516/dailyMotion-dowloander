@@ -24,7 +24,7 @@
         return;
       }
 
-      status.innerText = "Lancement du téléchargement...";
+      status.innerText = "Recherche du lien de téléchargement...";
 
       try {
         const response = await fetch('/download', {
@@ -33,20 +33,26 @@
           body: JSON.stringify({ url: url })
         });
 
-        if (!response.ok) throw new Error('Erreur réseau');
+        const data = await response.json();
 
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
+        if (!response.ok || !data.directUrl) {
+          throw new Error('Erreur lors de la récupération du lien');
+        }
+
+        status.innerText = "Téléchargement en cours...";
+
+        // فتح رابط الفيديو المباشر للتحميل الفوري
         const a = document.createElement('a');
-        a.href = downloadUrl;
+        a.href = data.directUrl;
         a.download = "video.mp4";
+        a.target = "_blank";
         document.body.appendChild(a);
         a.click();
         a.remove();
-        
-        status.innerText = "Téléchargement terminé !";
+
+        status.innerText = "Téléchargement lancé !";
       } catch (err) {
-        status.innerText = "Erreur lors du téléchargement.";
+        status.innerText = "Erreur: " + err.message;
       }
     }
   </script>
