@@ -8,23 +8,23 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// كايخلي السيرفر يعرض صفحة index.html فـ الرابط الرئيسي
 app.use(express.static(path.join(__dirname)));
 
 app.post('/download', (req, res) => {
   const { url: videoUrl, quality } = req.body;
   if (!videoUrl) return res.status(400).send('URL missing');
 
-  // تحديد الجودة المطلوبة (Default 480p)
   const targetQuality = quality || '480';
-  const formatOption = `b[height<=${targetQuality}]/w`;
+  
+  // صيغة مرنة تضمن اختيار الفيديو المتاح بـ 480p أو أقل بدون ملفات فارغة
+  const formatOption = `best[height<=${targetQuality}]/bestvideo[height<=${targetQuality}]+bestaudio/best`;
 
-  res.setHeader('Content-Disposition', 'attachment; filename="video.mp4"');
+  res.setHeader('Content-Disposition', `attachment; filename="video_${targetQuality}p.mp4"`);
   res.setHeader('Content-Type', 'video/mp4');
 
   const ytDlp = spawn('yt-dlp', [
     '-f', formatOption,
-    '--concurrent-fragments', '5',
+    '--no-playlist',
     '-o', '-',
     videoUrl
   ]);
