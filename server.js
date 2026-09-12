@@ -1,5 +1,5 @@
 const express = require('express');
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const cors = require('cors');
 const path = require('path');
 
@@ -11,20 +11,34 @@ app.use(express.static(path.join(__dirname)));
 
 app.post('/download', (req, res) => {
   const { url: videoUrl } = req.body;
-  if (!videoUrl) return res.status(400).send('URL missing');
+  if (!videoUrl) return res.status(400).json({ error: 'URL missing' });
 
-  // استخراج رابط الفيديو المباشر فقط
-  const cmd = `yt-dlp -g -f "best" --no-playlist --no-check-certificates "${videoUrl}"`;
+  res.setHeader('Content-Disposition', 'attachment; filename="video.mp4"');
+  res.setHeader('Content-Type', 'video/mp4');
 
-  exec(cmd, (error, stdout, stderr) => {
-    if (error || !stdout.trim()) {
-      console.error(`yt-dlp error: ${stderr || error.message}`);
-      return res.status(500).send('فشل استخراج رابط الفيديو');
+  // استخراج وتحويل الفيديو مباشرة عبر الرابط القياسي
+  const ytDlp = spawn('yt-dlp', [
+    '-f', 'b/w',
+    '--no-playlist',
+    '--no-check-certificates',
+    '-o', '-',
+    videoUrl
+  ]);
+
+  ytDlp.stdout.pipe(res);
+
+  ytDlp.stderr.on('data', (data) => {
+    console.error(`yt-dlp log: ${data}`);
+  });
+
+  ytDlp.on('close', (code) => {
+    if (code !== 0) {
+      console.log(`Process exited with code ${code}`);
     }
+  });
 
-    // إرجاع الرابط المباشر للـ Frontend
-    const directUrl = stdout.trim().split('\n')[0];
-    res.json({ directUrl: directUrl });
+  req.on('close', () => {
+    ytDlp.kill('SIGKILL');
   });
 });
 
