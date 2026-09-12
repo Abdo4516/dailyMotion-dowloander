@@ -2,28 +2,57 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Dailymotion Downloader</title>
+  <title>Dailymotion Video Downloader</title>
 </head>
 <body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
   <h2>Dailymotion Video Downloader</h2>
-  <input type="text" id="videoUrl" placeholder="Coller le lien ici..." style="width: 300px; padding: 10px;">
-  <button onclick="downloadVideo()" style="padding: 10px 20px;">Download</button>
+  
+  <div style="margin-bottom: 15px;">
+    <input type="text" id="videoUrl" placeholder="Coller le lien ici..." style="width: 300px; padding: 10px;">
+    
+    <select id="qualitySelect" style="padding: 10px;">
+      <option value="360">360p (أسرع/أخف)</option>
+      <option value="480" selected>480p (متوازن)</option>
+      <option value="720">720p (HD)</option>
+      <option value="1080">1080p (Full HD)</option>
+    </select>
+
+    <button onclick="downloadVideo()" style="padding: 10px 20px;">Download</button>
+  </div>
+
   <p id="status"></p>
 
   <script>
     async function downloadVideo() {
       const url = document.getElementById('videoUrl').value;
+      const quality = document.getElementById('qualitySelect').value;
       const status = document.getElementById('status');
-      status.innerText = "Téléchargement en cours...";
+
+      if (!url) {
+        status.innerText = "Veuillez entrer un lien valid!";
+        return;
+      }
+
+      status.innerText = `Lancement du téléchargement (${quality}p)...`;
 
       try {
         const response = await fetch('http://localhost:3000/download', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: url })
+          body: JSON.stringify({ url: url, quality: quality })
         });
-        const result = await response.text();
-        status.innerText = result;
+
+        if (!response.ok) throw new Error('Erreur réseau');
+
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `video_${quality}p.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        status.innerText = "Téléchargement terminé !";
       } catch (err) {
         status.innerText = "Erreur lors du téléchargement.";
       }

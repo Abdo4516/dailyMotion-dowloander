@@ -7,14 +7,19 @@ app.use(cors());
 app.use(express.json());
 
 app.post('/download', (req, res) => {
-  const videoUrl = req.body.url;
+  const { url: videoUrl, quality } = req.body;
   if (!videoUrl) return res.status(400).send('URL missing');
+
+  // تحديد الجودة المطلوبة
+  const targetQuality = quality || '480';
+  const formatOption = `b[height<=${targetQuality}]/w`;
 
   res.setHeader('Content-Disposition', 'attachment; filename="video.mp4"');
   res.setHeader('Content-Type', 'video/mp4');
 
   const ytDlp = spawn('yt-dlp', [
-    '-f', 'b',
+    '-f', formatOption,
+    '--concurrent-fragments', '5',
     '-o', '-',
     videoUrl
   ]);
@@ -22,7 +27,7 @@ app.post('/download', (req, res) => {
   ytDlp.stdout.pipe(res);
 
   ytDlp.stderr.on('data', (data) => {
-    console.error(`yt-dlp error: ${data}`);
+    console.error(`yt-dlp log: ${data}`);
   });
 
   ytDlp.on('close', (code) => {
