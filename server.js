@@ -16,11 +16,11 @@ app.post('/download', (req, res) => {
   res.setHeader('Content-Disposition', 'attachment; filename="video.mp4"');
   res.setHeader('Content-Type', 'video/mp4');
 
-  // استخراج وتحويل الفيديو مباشرة عبر الرابط القياسي
   const ytDlp = spawn('yt-dlp', [
-    '-f', 'b/w',
+    '-f', 'b',
     '--no-playlist',
     '--no-check-certificates',
+    '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     '-o', '-',
     videoUrl
   ]);
